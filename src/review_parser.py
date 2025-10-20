@@ -68,5 +68,28 @@ class ReviewParser:
             Review: The parsed review object.
         """
         # Rating
-        print(card.prettify())
-        # todo
+        rating_tag = card.select_one(self.rating_selector)
+        if rating_tag is None:
+            return None
+        
+        rating_strings = rating_tag.stripped_strings
+        rating_str = next(rating_strings, None)
+        if rating_str is None:
+            return None
+
+        rating_str = rating_str.replace("Scored ", "").replace(",", ".")
+        rating = float(rating_str)
+
+        # Positive content
+        positive_tag = card.select_one(self.positive_selector)
+        content_good = positive_tag.get_text(strip=True) if positive_tag else None
+
+        # Negative content
+        negative_tag = card.select_one(self.negative_selector)
+        content_bad = negative_tag.get_text(strip=True) if negative_tag else None
+
+        return Review( 
+            rating=rating,
+            content_good=content_good,
+            content_bad=content_bad
+        )

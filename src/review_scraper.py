@@ -25,7 +25,19 @@ class ReviewScraper:
         self.urls = urls
         self.parser = parser
         self.playwright = sync_playwright().start()
-        self.browser = self.playwright.chromium.launch(headless=True)
+        self.browser = self.playwright.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-accelerated-2d-canvas",
+                "--no-first-run",
+                "--no-zygote",
+                "--single-process",
+                "--disable-gpu",
+            ],
+            )
 
         # Make it behave as headful
         self.context = self.browser.new_context(
@@ -117,6 +129,8 @@ class ReviewScraper:
             self.language_selector, timeout=5000, state="attached"
         )
         self.page.select_option(self.language_selector, self.language)
+        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_timeout(2000)
 
     def scrape_next_page(self) -> str | None:
         """Scrapes the next URL in the list.
@@ -136,5 +150,18 @@ class ReviewScraper:
         self.__select_language()
 
         # Parse the current tab while the next buton
-        soup = BeautifulSoup(self.page.inner_html(self.container_selector), 'html.parser')
-        print(soup.prettify())
+        while not self.__is_disabled('button[aria-label="Next page"]'):
+            html = self.page.content()
+            reviews = self.parser.parse_current(html)
+            for review in reviews:
+                print(review)
+
+            self.__safe_click('button[aria-label="Next page"]')
+            self.page.wait_for_load_state("networkidle")
+
+
+        # Last page
+        html = self.page.content()
+        reviews = self.parser.parse_current(html)
+        for review in reviews:
+            print(review)
