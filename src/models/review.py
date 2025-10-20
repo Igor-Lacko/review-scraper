@@ -14,5 +14,5 @@ class Review:
     """Class modelling one hotel review."""
 
     rating: float
-    content_good: str
-    content_bad: str
+    content_good: str | None
+    content_bad: str | None
