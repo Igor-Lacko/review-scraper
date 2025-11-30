@@ -30,7 +30,7 @@ class Statistics:
 
     def print_summary(self) -> None:
         """Prints a summary of the statistics."""
-        print(f"---------- STATISTICS FOR {self.name} ----------")
+        print(f"---------- {self.name.upper()} STATISTICS ----------")
         print(f"Total reviews: {self.total_reviews}")
         print(f"Mean rating: {self.mean_rating:.2f}")
         print(f"Mean review length: {self.mean_length:.2f} characters")

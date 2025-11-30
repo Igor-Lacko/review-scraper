@@ -76,9 +76,9 @@ class ReviewCleaner:
         """
         total_reviews = df.shape[0]
         mean_rating = df["rating"].mean()
-        mean_length = 0
-        max_length = 0
-        min_length = 0
+        mean_length = df["content_good"].fillna("").apply(len).mean() + df["content_bad"].fillna("").apply(len).mean()
+        max_length = df["content_good"].fillna("").apply(len).max() + df["content_bad"].fillna("").apply(len).max()
+        min_length = df["content_good"].fillna("").apply(len).min() + df["content_bad"].fillna("").apply(len).min()
         with_positive_empty = df["content_good"].isna().sum()
         with_negative_empty = df["content_bad"].isna().sum()
 
