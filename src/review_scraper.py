@@ -9,7 +9,7 @@ Author: Igor Lacko
 from review_parser import ReviewParser
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
-from review_exporter import ReviewExporter
+from review_cleaner import ReviewCleaner
 
 
 class ReviewScraper:
@@ -55,7 +55,7 @@ class ReviewScraper:
         )
 
         # Review exporter
-        self.exporter = ReviewExporter()
+        self.exporter = ReviewCleaner(dataframe_folder=kwargs.get("dataframe_folder", "csvs/"))
 
         # Check for review selector
         self.review_selector = kwargs.get("review_selector", 'a[rel="reviews"]')
