@@ -57,10 +57,7 @@ class ReviewCleaner:
         Returns:
             pd.DataFrame: Cleaned DataFrame.
         """
-        df = df[
-            (df["content_good"].str.strip() != "")
-            | (df["content_bad"].str.strip() != "")
-        ]
+        df = df.dropna(how="all", subset=["content_good", "content_bad"])
         df = df.drop_duplicates()
         return df
 
