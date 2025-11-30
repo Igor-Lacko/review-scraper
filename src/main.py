@@ -34,10 +34,17 @@ def init_scraper(urls: list[str], parser: ReviewParser) -> ReviewScraper:
     scraper = ReviewScraper(urls, parser)
     return scraper
 
+def help() -> None:
+    """Prints help message for using the scraper."""
+    print("Usage: python main.py <url1> <url2> ...")
+    print("Example: python main.py https://www.booking.com/hotel/sk/example1 https://www.booking.com/hotel/sk/example2")
+
 if __name__ == "__main__":
-    print("This is the main module.")
-    if len(argv) > 1:
-        urls = argv[1:]
-        parser = init_parser()
-        scraper = init_scraper(urls, parser)
-        scraper.scrape_next_page()
+    if ("-h" in argv) or ("--help" in argv) or (len(argv) == 1):
+        help()
+        exit(0)
+
+    urls = argv[1:]
+    parser = init_parser()
+    scraper = init_scraper(urls, parser)
+    scraper.scrape_next_page()
