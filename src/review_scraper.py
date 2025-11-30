@@ -9,6 +9,7 @@ Author: Igor Lacko
 from review_parser import ReviewParser
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
+from review_exporter import ReviewExporter
 
 
 class ReviewScraper:
@@ -25,8 +26,9 @@ class ReviewScraper:
         self.urls = urls
         self.parser = parser
         self.playwright = sync_playwright().start()
+        self.debug = kwargs.get("debug", False)
         self.browser = self.playwright.chromium.launch(
-            headless=True,
+            headless=not self.debug,
             args=[
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
@@ -37,22 +39,31 @@ class ReviewScraper:
                 "--single-process",
                 "--disable-gpu",
             ],
-            )
+        )
 
         # Make it behave as headful
-        self.context = self.browser.new_context(
-            viewport={"width": 1280, "height": 800},
-            device_scale_factor=1,
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            locale="en-US",
-            extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+        self.context = (
+            self.browser.new_context(
+                viewport={"width": 1280, "height": 800},
+                device_scale_factor=1,
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                locale="en-US",
+                extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+            )
+            if not self.debug
+            else self.browser.new_context()
         )
+
+        # Review exporter
+        self.exporter = ReviewExporter()
 
         # Check for review selector
         self.review_selector = kwargs.get("review_selector", 'a[rel="reviews"]')
 
         # And for container selector
-        self.container_selector = kwargs.get("container_selector", 'div[data-testid="review-list-container"]')
+        self.container_selector = kwargs.get(
+            "container_selector", 'div[data-testid="review-list-container"]'
+        )
 
         # And for language selector
         self.language_selector = kwargs.get(
@@ -64,6 +75,11 @@ class ReviewScraper:
 
         # Initialize page
         self.page = self.context.new_page()
+
+    def __call__(self):
+        """Scrapes all URLs in the list."""
+        while self.urls:
+            self.scrape_next_page()
 
     def __map_language(self, language: str) -> str:
         """Maps a language name to its code used in the website.
@@ -105,6 +121,17 @@ class ReviewScraper:
         cookies_selector = 'button[id="onetrust-reject-all-handler"]'
         if not self.__is_disabled(cookies_selector):
             self.__safe_click(cookies_selector)
+            self.page.wait_for_load_state("networkidle")
+            self.page.wait_for_timeout(1000)
+            print("Closed cookies banner.")
+
+    def __get_hotel_name(self):
+        """Scrapes the hotel name from the page URL."""
+        url = self.page.url
+        # Between the last / and .html
+        start = url.rfind("/") + 1
+        end = url.rfind(".html")
+        self.hotel_name = url[start:end].replace("-", " ").title()
 
     def __is_disabled(self, selector: str) -> bool:
         """Checks if an element specified by the selector is disabled.
@@ -143,25 +170,33 @@ class ReviewScraper:
 
         # Switch to the reviews
         url = self.urls.pop(0)
+        print(f"Loading {url} ...")
         self.page.goto(url, wait_until="networkidle")
+        print("Page loaded.")
         self.__close_cookies_if_needed()
+        self.__get_hotel_name()
+        print(f"Scraping reviews for hotel: {self.hotel_name} ...")
         self.__safe_click(self.review_selector)
         self.page.wait_for_load_state("networkidle")
         self.__select_language()
+
+        scraped_reviews = []
 
         # Parse the current tab while the next buton
         while not self.__is_disabled('button[aria-label="Next page"]'):
             html = self.page.content()
             reviews = self.parser.parse_current(html)
             for review in reviews:
-                print(review)
+                scraped_reviews.append(review)
 
             self.__safe_click('button[aria-label="Next page"]')
             self.page.wait_for_load_state("networkidle")
-
 
         # Last page
         html = self.page.content()
         reviews = self.parser.parse_current(html)
         for review in reviews:
-            print(review)
+            scraped_reviews.append(review)
+
+        # Create dataframe
+        self.exporter.create_dataframe(self.hotel_name, scraped_reviews)

@@ -10,28 +10,32 @@ from review_scraper import ReviewScraper
 from review_parser import ReviewParser
 from sys import argv
 
-def init_parser() -> ReviewParser:
+def init_parser(**kwargs) -> ReviewParser:
     """Initializes the review parser with default selectors. If any will be changed, 
     here is the place to do it.
+
+    Args:
+        kwargs: Additional keyword arguments for future extensions.
 
     Returns:
         ReviewParser: The initialized review parser.
     """
-    parser = ReviewParser()
+    parser = ReviewParser(**kwargs)
     return parser
 
-def init_scraper(urls: list[str], parser: ReviewParser) -> ReviewScraper:
+def init_scraper(urls: list[str], parser: ReviewParser, **kwargs) -> ReviewScraper:
     """Initializes the review scraper with default settings. If any will be changed,
     here is the place to do it.
 
     Args:
         urls (list[str]): List of URLs to scrape.
         parser (ReviewParser): The parser instance to use.
+        kwargs: Additional keyword arguments for future extensions.
 
     Returns:
         ReviewScraper: The initialized review scraper.
     """
-    scraper = ReviewScraper(urls, parser)
+    scraper = ReviewScraper(urls, parser, **kwargs)
     return scraper
 
 def help() -> None:
@@ -44,7 +48,9 @@ if __name__ == "__main__":
         help()
         exit(0)
 
+    debug = "-d" in argv or "--debug" in argv
+
     urls = argv[1:]
     parser = init_parser()
-    scraper = init_scraper(urls, parser)
-    scraper.scrape_next_page()
+    scraper = init_scraper(urls, parser, **{"debug": debug})
+    scraper()

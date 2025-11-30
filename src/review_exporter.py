@@ -7,6 +7,7 @@ Author: Igor Lacko
 """
 
 import pandas as pd
+import os
 from models.review import Review
 
 
@@ -16,6 +17,7 @@ class ReviewExporter:
     def __init__(self):
         """Class constructor."""
         self.dataframe_folder = "csvs/"
+        os.makedirs(self.dataframe_folder, exist_ok=True)
 
     def create_dataframe(self, hotel_name: str, reviews: list[Review]):
         """Creates a pandas DataFrame from the list of reviews.
@@ -35,4 +37,7 @@ class ReviewExporter:
             ]
         )
 
-        df.to_csv(f"{self.dataframe_folder}{hotel_name}.csv", index=False)
+        df.to_csv(
+            f"{self.dataframe_folder}{hotel_name.lower().replace(' ', '_')}.csv",
+            index=False,
+        )
