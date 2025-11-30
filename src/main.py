@@ -86,6 +86,13 @@ if __name__ == "__main__":
             cleaner.clean_folder()
         exit(0)
 
+    elif args.statistics != "none" and not args.urls:
+        cleaner = ReviewCleaner(
+            dataframe_folder=args.dataframe_folder, statistics=args.statistics
+        )
+        cleaner.show_stored_statistics()
+        exit(0)
+
     elif not args.urls:
         help()
         exit(0)

@@ -27,6 +27,7 @@ class ReviewScraper:
         self.parser = parser
         self.playwright = sync_playwright().start()
         self.debug = kwargs.get("debug", False)
+        self.statistics_mode = kwargs.get("statistics", "none")
         self.browser = self.playwright.chromium.launch(
             headless=not self.debug,
             args=[
@@ -55,7 +56,10 @@ class ReviewScraper:
         )
 
         # Review exporter
-        self.exporter = ReviewCleaner(dataframe_folder=kwargs.get("dataframe_folder", "csvs/"))
+        self.exporter = ReviewCleaner(
+            dataframe_folder=kwargs.get("dataframe_folder", "csvs/"),
+            statistics=kwargs.get("statistics", "none"),
+        )
 
         # Check for review selector
         self.review_selector = kwargs.get("review_selector", 'a[rel="reviews"]')
@@ -80,6 +84,9 @@ class ReviewScraper:
         """Scrapes all URLs in the list."""
         while self.urls:
             self.scrape_next_page()
+
+        if self.statistics_mode in ("summary", "all"):
+            self.exporter.compute_summary()
 
     def __map_language(self, language: str) -> str:
         """Maps a language name to its code used in the website.
