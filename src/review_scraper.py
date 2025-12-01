@@ -126,7 +126,9 @@ class ReviewScraper:
     def __close_cookies_if_needed(self) -> None:
         """Closes the cookies banner if it is present."""
         cookies_selector = 'button[id="onetrust-reject-all-handler"]'
-        if not self.__is_disabled(cookies_selector):
+        if self.page.query_selector(
+            cookies_selector
+        ) is not None and not self.__is_disabled(cookies_selector):
             self.__safe_click(cookies_selector)
             self.page.wait_for_load_state("networkidle")
             self.page.wait_for_timeout(1000)

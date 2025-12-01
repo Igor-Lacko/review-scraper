@@ -13,6 +13,11 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Booking.com Hotel Review Scraper")
 parser.add_argument("urls", nargs="*", help="List of URLs to scrape")
+parser.add_argument(
+    "--from-txt",
+    type=str,
+    help="Path to a .txt file containing URLs (one per line) to scrape. Cannot be used with manual URLs."
+)
 parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode")
 parser.add_argument(
     "-s",
@@ -75,6 +80,7 @@ def help() -> None:
     )
 
 
+
 if __name__ == "__main__":
     args = parser.parse_args()
 
@@ -86,14 +92,30 @@ if __name__ == "__main__":
             cleaner.clean_folder()
         exit(0)
 
-    elif args.statistics != "none" and not args.urls:
+    elif args.statistics != "none" and not args.urls and not args.from_txt:
         cleaner = ReviewCleaner(
             dataframe_folder=args.dataframe_folder, statistics=args.statistics
         )
         cleaner.show_stored_statistics()
         exit(0)
 
-    elif not args.urls:
+    # Enforce that --from-txt and manual URLs cannot be used together
+    if args.from_txt and args.urls:
+        print("Error: --from-txt cannot be used together with manual URLs.")
+        exit(1)
+
+    # If --from-txt is used, read URLs from the file
+    if args.from_txt:
+        try:
+            with open(args.from_txt, "r") as f:
+                urls = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            print(f"Error reading URLs from {args.from_txt}: {e}")
+            exit(1)
+    else:
+        urls = args.urls
+
+    if not urls:
         help()
         exit(0)
 
@@ -104,5 +126,5 @@ if __name__ == "__main__":
     }
 
     parser = init_parser()
-    scraper = init_scraper(args.urls, parser, **kwargs)
+    scraper = init_scraper(urls, parser, **kwargs)
     scraper()

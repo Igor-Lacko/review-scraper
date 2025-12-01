@@ -11,6 +11,7 @@ import os
 from models.review import Review
 from models.statistics import Statistics
 
+
 class ReviewCleaner:
     """Class for cleaning and exporting reviews into CSV format."""
 
@@ -56,7 +57,7 @@ class ReviewCleaner:
             self.compute_statistics(hotel_name, df)
 
     def __clean(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Cleans the DataFrame before exporting. Removes empty reviews and duplicates.
+        """Cleans the DataFrame before exporting. Removes empty reviews, reviews shorter than 100 chars and duplicates.
 
         Args:
             df (pd.DataFrame): Input DataFrame.
@@ -64,10 +65,13 @@ class ReviewCleaner:
         Returns:
             pd.DataFrame: Cleaned DataFrame.
         """
-        df = df.dropna(how="all", subset=["content_good", "content_bad"])
-        df = df.drop_duplicates()
+        df = df.dropna(how="all", subset=["content_good", "content_bad"])[
+            df["content_good"].fillna("").apply(len)
+            + df["content_bad"].fillna("").apply(len)
+            >= 100
+        ].drop_duplicates()
         return df
-    
+
     def compute_statistics(self, name: str, df: pd.DataFrame):
         """Computes statistics for the given DataFrame.
 
@@ -76,9 +80,20 @@ class ReviewCleaner:
         """
         total_reviews = df.shape[0]
         mean_rating = df["rating"].mean()
-        mean_length = df["content_good"].fillna("").apply(len).mean() + df["content_bad"].fillna("").apply(len).mean()
-        max_length = df["content_good"].fillna("").apply(len).max() + df["content_bad"].fillna("").apply(len).max()
-        min_length = df["content_good"].fillna("").apply(len).min() + df["content_bad"].fillna("").apply(len).min()
+        mean_length = (
+            df["content_good"].fillna("").apply(len).mean()
+            + df["content_bad"].fillna("").apply(len).mean()
+        )
+        max_length = (
+            df["content_good"].fillna("").apply(len).max()
+            + df["content_bad"].fillna("").apply(len).max()
+        )
+
+        col_len = lambda val: len(val) if pd.notna(val) else float("inf")
+        min_length = (
+            df["content_good"].apply(col_len).min()
+            + df["content_bad"].apply(col_len).min()
+        )
         with_positive_empty = df["content_good"].isna().sum()
         with_negative_empty = df["content_bad"].isna().sum()
 
@@ -93,14 +108,17 @@ class ReviewCleaner:
             with_negative_empty=with_negative_empty,
         )
 
+        if self.statistics_mode in ("summary", "all"):
+            self.statistics.append(stats)
+
         stats.print_summary()
-    
+
     def compute_summary(self):
         """Computes and prints summary statistics for all processed hotels."""
         if not self.statistics:
             print("No statistics to summarize.")
             return
-        
+
         total_reviews = 0
         total_mean_rating = 0.0
         total_mean_length = 0.0
@@ -114,7 +132,11 @@ class ReviewCleaner:
             total_mean_rating += stats.mean_rating
             total_mean_length += stats.mean_length
             total_max_length = max(total_max_length, stats.max_length)
-            total_min_length = min(total_min_length, stats.min_length) if total_min_length > 0 else stats.min_length
+            total_min_length = (
+                min(total_min_length, stats.min_length)
+                if total_min_length > 0
+                else stats.min_length
+            )
             total_with_positive_empty += stats.with_positive_empty
             total_with_negative_empty += stats.with_negative_empty
 
@@ -153,7 +175,7 @@ class ReviewCleaner:
             if csv_file.endswith(".csv"):
                 filepath = os.path.join(self.dataframe_folder, csv_file)
                 df = pd.read_csv(filepath)
-                hotel_name = csv_file[:-4].replace('_', ' ').title()
+                hotel_name = csv_file[:-4].replace("_", " ").title()
                 self.compute_statistics(hotel_name, df)
 
         if self.statistics_mode in ("summary", "all"):
