@@ -23,7 +23,7 @@ class ReviewScraper:
         Args:
             urls (list[str]): List of URLs to scrape.
             parser (ReviewParser): The parser instance to use.
-        kwargs: Additional keyword arguments for future extensions.
+            kwargs: Additional keyword arguments for future extensions.
         """
         self.urls = urls
         self.base_list_url = kwargs.get("base_list_url", None)
@@ -124,6 +124,7 @@ class ReviewScraper:
             self.page.goto(self.base_list_url, wait_until="networkidle")
             status.update("[bold blue]Page loaded. Handling cookies...[/bold blue]")
             self.__close_cookies_if_needed()
+            self.__close_genius_popup_if_needed()
             status.update("[bold blue]Scraping hotel URLs...[/bold blue]")
 
             # Avoid duplicate URLs
@@ -134,6 +135,7 @@ class ReviewScraper:
                 self.link_title_selector, timeout=10000, state="attached"
             )
 
+            retries = 0
             while True:
                 previous_count = len(scraped_urls)
 
@@ -159,27 +161,30 @@ class ReviewScraper:
                 if len(scraped_urls) >= self.limit:
                     break
 
-                # Scroll down to the bottom to trigger fetching more hotels
-                self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                self.page.wait_for_timeout(2000)
+                load_more_button_selector = 'button:has(span:text("Load more results"))'
 
-                # Scraped all links, have to load more
+                # Always try to find this button since computing when to stop is hard
+                if self.page.locator(load_more_button_selector).is_visible():
+                    status.update("[bold blue]Loading more results ...[/bold blue]")
+                    self.page.locator(load_more_button_selector).scroll_into_view_if_needed()
+                    self.__safe_click(load_more_button_selector)
+                    self.page.wait_for_load_state("networkidle")
+                    self.page.wait_for_timeout(2000)
+                else:
+                    # Scroll down to the bottom to trigger fetching more hotels
+                    self.page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
+                    self.page.wait_for_load_state("networkidle")
+                    self.page.wait_for_timeout(2000)
+
                 if len(scraped_urls) == previous_count:
-                    load_more_button = self.page.locator(
-                        'button:has(span:text("Load more results"))'
-                    )
-                    if load_more_button.count() > 0:
-                        status.update("[bold blue]Loading more results ...[/bold blue]")
-                        load_more_button.click()
-                        self.page.wait_for_load_state("networkidle")
-                        # I love random "just in case" timeouts
-                        self.page.wait_for_timeout(2000)
-                    else:
-                        # If no button and no new links, we might be at the end
+                    retries += 1
+                    if retries >= 5:
                         console.print(
                             "[bold yellow]No more results to load.[/bold yellow]"
                         )
                         break
+                else:
+                    retries = 0
 
             self.urls = list(scraped_urls)
             console.print(f"[bold green]Found {len(self.urls)} links.[/bold green]")
@@ -239,6 +244,16 @@ class ReviewScraper:
             self.page.wait_for_load_state("networkidle")
             self.page.wait_for_timeout(1000)
 
+    def __close_genius_popup_if_needed(self) -> None:
+        """Closes the Genius popup if it is present."""
+        genius_selector = 'button[aria-label="Dismiss sign-in info."]'
+        if self.page.query_selector(
+            genius_selector
+        ) is not None and not self.__is_disabled(genius_selector):
+            self.__safe_click(genius_selector)
+            self.page.wait_for_load_state("networkidle")
+            self.page.wait_for_timeout(1000)
+
     def __get_hotel_name(self):
         """Scrapes the hotel name from the page content or URL."""
         url = self.page.url
@@ -292,6 +307,7 @@ class ReviewScraper:
             self.page.goto(url, wait_until="networkidle")
             status.update(f"[bold blue]Page loaded. Handling cookies...[/bold blue]")
             self.__close_cookies_if_needed()
+            self.__close_genius_popup_if_needed()
             self.__get_hotel_name()
             status.update(
                 f"[bold blue]Scraping reviews for hotel: {self.hotel_name} ...[/bold blue]"
