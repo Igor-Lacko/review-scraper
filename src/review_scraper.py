@@ -8,9 +8,10 @@ Author: Igor Lacko
 
 from review_parser import ReviewParser
 from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
 from review_cleaner import ReviewCleaner
+from url_filter import URLFilter
 from shared import console
+from utils import shorten_url
 
 
 class ReviewScraper:
@@ -25,6 +26,9 @@ class ReviewScraper:
         kwargs: Additional keyword arguments for future extensions.
         """
         self.urls = urls
+        self.base_list_url = kwargs.get("base_list_url", None)
+        self.limit = int(kwargs.get("limit", 100))
+        self.output_file = kwargs.get("output_file", None)
         self.parser = parser
         self.playwright = sync_playwright().start()
         self.debug = kwargs.get("debug", False)
@@ -62,6 +66,11 @@ class ReviewScraper:
             statistics=kwargs.get("statistics", "none"),
         )
 
+        # URL filter
+        self.filter = URLFilter(
+            dataframe_folder=kwargs.get("dataframe_folder", "csvs/")
+        )
+
         # Check for review selector
         self.review_selector = kwargs.get("review_selector", 'a[rel="reviews"]')
 
@@ -75,6 +84,11 @@ class ReviewScraper:
             "language_selector", 'select[name="languages"][data-testid="languages"]'
         )
 
+        # And for link title selector
+        self.link_title_selector = kwargs.get(
+            "link_title_selector", 'a[data-testid="title-link"]'
+        )
+
         # And language itself!
         self.language = self.__map_language(kwargs.get("language", "slovak"))
 
@@ -83,11 +97,102 @@ class ReviewScraper:
 
     def __call__(self):
         """Scrapes all URLs in the list."""
+        if self.base_list_url is not None:
+            if self.output_file is None:
+                console.print(
+                    "[bold red]Error: Output file must be specified when scraping URLs from a list.[/bold red]"
+                )
+                return
+
+            self.__scrape_urls_from_list()
+            return
+
         while self.urls:
             self.scrape_next_page()
 
         if self.statistics_mode in ("summary", "all"):
             self.exporter.compute_summary()
+
+    def __scrape_urls_from_list(self):
+        """Scrapes hotel URLs from a search result page."""
+        if self.base_list_url is None:
+            raise ValueError("Base list URL is not set.")
+        elif self.limit <= 0:
+            raise ValueError("Limit must be a positive integer.")
+
+        with console.status("[bold blue]Loading list page...[/bold blue]") as status:
+            self.page.goto(self.base_list_url, wait_until="networkidle")
+            status.update("[bold blue]Page loaded. Handling cookies...[/bold blue]")
+            self.__close_cookies_if_needed()
+            status.update("[bold blue]Scraping hotel URLs...[/bold blue]")
+
+            # Avoid duplicate URLs
+            scraped_urls = set()
+
+            # Wait for at least one link to be present
+            self.page.wait_for_selector(
+                self.link_title_selector, timeout=10000, state="attached"
+            )
+
+            while True:
+                previous_count = len(scraped_urls)
+
+                # Get all title links
+                anchors = self.page.locator(self.link_title_selector).all()
+
+                for anchor in anchors:
+                    href = anchor.get_attribute("href")
+                    link = shorten_url(href) if href is not None else None
+                    if (
+                        link is not None
+                        and link not in scraped_urls
+                        and self.filter.filter_one_url(link)
+                    ):
+                        scraped_urls.add(link)
+                        if len(scraped_urls) >= self.limit:
+                            break
+
+                status.update(
+                    f"[bold blue]Scraping hotel URLs... ({len(scraped_urls)} found)[/bold blue]"
+                )
+
+                if len(scraped_urls) >= self.limit:
+                    break
+
+                # Scroll down to the bottom to trigger fetching more hotels
+                self.page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                self.page.wait_for_timeout(2000)
+
+                # Scraped all links, have to load more
+                if len(scraped_urls) == previous_count:
+                    load_more_button = self.page.locator(
+                        'button:has(span:text("Load more results"))'
+                    )
+                    if load_more_button.count() > 0:
+                        status.update("[bold blue]Loading more results ...[/bold blue]")
+                        load_more_button.click()
+                        self.page.wait_for_load_state("networkidle")
+                        # I love random "just in case" timeouts
+                        self.page.wait_for_timeout(2000)
+                    else:
+                        # If no button and no new links, we might be at the end
+                        console.print(
+                            "[bold yellow]No more results to load.[/bold yellow]"
+                        )
+                        break
+
+            self.urls = list(scraped_urls)
+            console.print(f"[bold green]Found {len(self.urls)} links.[/bold green]")
+
+            if self.output_file is None:
+                raise ValueError("Output file must be specified to save scraped URLs.")
+
+            with open(self.output_file, "a") as f:
+                for url in self.urls:
+                    f.write(f"{url}\n")
+            console.print(
+                f"[bold green]Saved {len(self.urls)} URLs to {self.output_file}[/bold green]"
+            )
 
     def __map_language(self, language: str) -> str:
         """Maps a language name to its code used in the website.
@@ -142,19 +247,6 @@ class ReviewScraper:
         end = url.rfind(".html")
         self.hotel_name = url[start:end].replace("-", " ").title()
 
-    @staticmethod
-    def url_to_csv(url: str) -> str:
-        """Converts a hotel URL to a CSV filename.
-        Args:
-            url (str): The hotel URL.
-        Returns:
-            str: The corresponding CSV filename.
-        """
-        start = url.rfind("/") + 1
-        end = url.rfind(".html")
-        hotel_name = url[start:end]
-        return f"{hotel_name.lower().replace('-', '_')}.csv"
-
     def __is_disabled(self, selector: str) -> bool:
         """Checks if an element specified by the selector is disabled.
 
@@ -192,13 +284,15 @@ class ReviewScraper:
 
         # Switch to the reviews
         url = self.urls.pop(0)
-        
+
         with console.status(f"[bold blue]Loading {url} ...[/bold blue]") as status:
             self.page.goto(url, wait_until="networkidle")
             status.update(f"[bold blue]Page loaded. Handling cookies...[/bold blue]")
             self.__close_cookies_if_needed()
             self.__get_hotel_name()
-            status.update(f"[bold blue]Scraping reviews for hotel: {self.hotel_name} ...[/bold blue]")
+            status.update(
+                f"[bold blue]Scraping reviews for hotel: {self.hotel_name} ...[/bold blue]"
+            )
             self.__safe_click(self.review_selector)
             self.page.wait_for_load_state("networkidle")
             self.__select_language()
@@ -211,8 +305,10 @@ class ReviewScraper:
                 reviews = self.parser.parse_current(html)
                 for review in reviews:
                     scraped_reviews.append(review)
-                
-                status.update(f"[bold blue]Scraping reviews for hotel: {self.hotel_name} ... ({len(scraped_reviews)} scraped)[/bold blue]")
+
+                status.update(
+                    f"[bold blue]Scraping reviews for hotel: {self.hotel_name} ... ({len(scraped_reviews)} scraped)[/bold blue]"
+                )
 
                 self.__safe_click('button[aria-label="Next page"]')
                 self.page.wait_for_load_state("networkidle")
@@ -223,7 +319,9 @@ class ReviewScraper:
             for review in reviews:
                 scraped_reviews.append(review)
 
-        console.print(f"[bold green]Successfully scraped {len(scraped_reviews)} reviews for {self.hotel_name}![/bold green]")
+        console.print(
+            f"[bold green]Successfully scraped {len(scraped_reviews)} reviews for {self.hotel_name}![/bold green]"
+        )
 
         # Create dataframe
         self.exporter.create_dataframe(self.hotel_name, scraped_reviews)

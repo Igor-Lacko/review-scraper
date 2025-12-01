@@ -7,11 +7,11 @@ Author: Igor Lacko
 """
 
 import argparse
-import os
 from shared import console
 from review_scraper import ReviewScraper
 from review_parser import ReviewParser
 from review_cleaner import ReviewCleaner
+from url_filter import URLFilter
 
 parser = argparse.ArgumentParser(description="Booking.com Hotel Review Scraper")
 parser.add_argument("urls", nargs="*", help="List of URLs to scrape")
@@ -19,6 +19,12 @@ parser.add_argument(
     "--from-txt",
     type=str,
     help="Path to a .txt file containing URLs (one per line) to scrape. Cannot be used with manual URLs. If the corresponding csv file exists (URL-based name), it will be skipped.",
+)
+parser.add_argument(
+    "--urls-from-list",
+    nargs=3,
+    metavar=("URL", "LIMIT", "OUTPUT_FILE"),
+    help="Scrape hotel URLs from a search result page and append them to a file. Does not scrape reviews, only the URLS to later be scraped with --from-txt.",
 )
 parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode")
 parser.add_argument(
@@ -93,16 +99,23 @@ if __name__ == "__main__":
             cleaner.clean_folder()
         exit(0)
 
-    elif args.statistics != "none" and not args.urls and not args.from_txt:
+    elif (
+        args.statistics != "none"
+        and not args.urls
+        and not args.from_txt
+        and not args.urls_from_list
+    ):
         cleaner = ReviewCleaner(
             dataframe_folder=args.dataframe_folder, statistics=args.statistics
         )
         cleaner.show_stored_statistics()
         exit(0)
 
-    # Enforce that --from-txt and manual URLs cannot be used together
-    if args.from_txt and args.urls:
-        console.print("[bold red]Error: --from-txt cannot be used together with manual URLs.[/bold red]")
+    # Enforce that --from-txt, --urls-from-list and manual URLs cannot be used together
+    if sum([bool(args.from_txt), bool(args.urls), bool(args.urls_from_list)]) > 1:
+        console.print(
+            "[bold red]Error: You can only use one of manual URLs, --from-txt, or --urls-from-list.[/bold red]"
+        )
         exit(1)
 
     # If --from-txt is used, read URLs from the file
@@ -111,28 +124,35 @@ if __name__ == "__main__":
             with open(args.from_txt, "r") as f:
                 urls = [line.strip() for line in f if line.strip()]
                 # Filter out duplicate URLs
-                existing_files = (
-                    os.listdir(args.dataframe_folder)
-                    if os.path.exists(args.dataframe_folder)
-                    else []
-                )
-                files_to_add = [ReviewScraper.url_to_csv(url) for url in urls]
-                # For loop to print out skipped files
-                filtered_urls = []
-                for url, file in zip(urls, files_to_add):
-                    if file in existing_files:
-                        console.print(f"[yellow]Skipping URL (CSV already exists): {url} -> {file}[/yellow]")
-                    else:
-                        filtered_urls.append(url)
-                urls = filtered_urls
+                url_filter = URLFilter(dataframe_folder=args.dataframe_folder)
+                urls = url_filter.filter_existing_urls(urls)
 
                 if not urls:
-                    console.print("[bold green]No new URLs to scrape after filtering existing CSV files.[/bold green]")
+                    console.print(
+                        "[bold green]No new URLs to scrape after filtering existing CSV files.[/bold green]"
+                    )
                     exit(0)
 
         except Exception as e:
-            console.print(f"[bold red]Error reading URLs from {args.from_txt}: {e}[/bold red]")
+            console.print(
+                f"[bold red]Error reading URLs from {args.from_txt}: {e}[/bold red]"
+            )
             exit(1)
+    elif args.urls_from_list:
+        parser = init_parser()
+        scraper = init_scraper(
+            [],
+            parser,
+            base_list_url=args.urls_from_list[0],
+            limit=int(args.urls_from_list[1]),
+            output_file=args.urls_from_list[2],
+            debug=args.debug,
+            statistics=args.statistics,
+            dataframe_folder=args.dataframe_folder,
+        )
+        scraper()
+        exit(0)
+
     else:
         urls = args.urls
 
