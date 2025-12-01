@@ -142,6 +142,19 @@ class ReviewScraper:
         end = url.rfind(".html")
         self.hotel_name = url[start:end].replace("-", " ").title()
 
+    @staticmethod
+    def url_to_csv(url: str) -> str:
+        """Converts a hotel URL to a CSV filename.
+        Args:
+            url (str): The hotel URL.
+        Returns:
+            str: The corresponding CSV filename.
+        """
+        start = url.rfind("/") + 1
+        end = url.rfind(".html")
+        hotel_name = url[start:end]
+        return f"{hotel_name.lower().replace('-', '_')}.csv"
+
     def __is_disabled(self, selector: str) -> bool:
         """Checks if an element specified by the selector is disabled.
 

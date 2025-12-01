@@ -6,17 +6,18 @@ Entry point to the Booking.com scraper for slovak hotel reviews.
 Author: Igor Lacko
 """
 
+import argparse
+import os
 from review_scraper import ReviewScraper
 from review_parser import ReviewParser
 from review_cleaner import ReviewCleaner
-import argparse
 
 parser = argparse.ArgumentParser(description="Booking.com Hotel Review Scraper")
 parser.add_argument("urls", nargs="*", help="List of URLs to scrape")
 parser.add_argument(
     "--from-txt",
     type=str,
-    help="Path to a .txt file containing URLs (one per line) to scrape. Cannot be used with manual URLs."
+    help="Path to a .txt file containing URLs (one per line) to scrape. Cannot be used with manual URLs. If the corresponding csv file exists (URL-based name), it will be skipped.",
 )
 parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mode")
 parser.add_argument(
@@ -80,7 +81,6 @@ def help() -> None:
     )
 
 
-
 if __name__ == "__main__":
     args = parser.parse_args()
 
@@ -109,6 +109,26 @@ if __name__ == "__main__":
         try:
             with open(args.from_txt, "r") as f:
                 urls = [line.strip() for line in f if line.strip()]
+                # Filter out duplicate URLs
+                existing_files = (
+                    os.listdir(args.dataframe_folder)
+                    if os.path.exists(args.dataframe_folder)
+                    else []
+                )
+                files_to_add = [ReviewScraper.url_to_csv(url) for url in urls]
+                # For loop to print out skipped files
+                filtered_urls = []
+                for url, file in zip(urls, files_to_add):
+                    if file in existing_files:
+                        print(f"Skipping URL (CSV already exists): {url} -> {file}")
+                    else:
+                        filtered_urls.append(url)
+                urls = filtered_urls
+
+                if not urls:
+                    print("No new URLs to scrape after filtering existing CSV files.")
+                    exit(0)
+
         except Exception as e:
             print(f"Error reading URLs from {args.from_txt}: {e}")
             exit(1)
