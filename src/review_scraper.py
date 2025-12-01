@@ -10,6 +10,7 @@ from review_parser import ReviewParser
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 from review_cleaner import ReviewCleaner
+from shared import console
 
 
 class ReviewScraper:
@@ -132,7 +133,6 @@ class ReviewScraper:
             self.__safe_click(cookies_selector)
             self.page.wait_for_load_state("networkidle")
             self.page.wait_for_timeout(1000)
-            print("Closed cookies banner.")
 
     def __get_hotel_name(self):
         """Scrapes the hotel name from the page URL."""
@@ -192,33 +192,38 @@ class ReviewScraper:
 
         # Switch to the reviews
         url = self.urls.pop(0)
-        print(f"Loading {url} ...")
-        self.page.goto(url, wait_until="networkidle")
-        print("Page loaded.")
-        self.__close_cookies_if_needed()
-        self.__get_hotel_name()
-        print(f"Scraping reviews for hotel: {self.hotel_name} ...")
-        self.__safe_click(self.review_selector)
-        self.page.wait_for_load_state("networkidle")
-        self.__select_language()
+        
+        with console.status(f"[bold blue]Loading {url} ...[/bold blue]") as status:
+            self.page.goto(url, wait_until="networkidle")
+            status.update(f"[bold blue]Page loaded. Handling cookies...[/bold blue]")
+            self.__close_cookies_if_needed()
+            self.__get_hotel_name()
+            status.update(f"[bold blue]Scraping reviews for hotel: {self.hotel_name} ...[/bold blue]")
+            self.__safe_click(self.review_selector)
+            self.page.wait_for_load_state("networkidle")
+            self.__select_language()
 
-        scraped_reviews = []
+            scraped_reviews = []
 
-        # Parse the current tab while the next buton
-        while not self.__is_disabled('button[aria-label="Next page"]'):
+            # Parse the current tab while the next buton
+            while not self.__is_disabled('button[aria-label="Next page"]'):
+                html = self.page.content()
+                reviews = self.parser.parse_current(html)
+                for review in reviews:
+                    scraped_reviews.append(review)
+                
+                status.update(f"[bold blue]Scraping reviews for hotel: {self.hotel_name} ... ({len(scraped_reviews)} scraped)[/bold blue]")
+
+                self.__safe_click('button[aria-label="Next page"]')
+                self.page.wait_for_load_state("networkidle")
+
+            # Last page
             html = self.page.content()
             reviews = self.parser.parse_current(html)
             for review in reviews:
                 scraped_reviews.append(review)
 
-            self.__safe_click('button[aria-label="Next page"]')
-            self.page.wait_for_load_state("networkidle")
-
-        # Last page
-        html = self.page.content()
-        reviews = self.parser.parse_current(html)
-        for review in reviews:
-            scraped_reviews.append(review)
+        console.print(f"[bold green]Successfully scraped {len(scraped_reviews)} reviews for {self.hotel_name}![/bold green]")
 
         # Create dataframe
         self.exporter.create_dataframe(self.hotel_name, scraped_reviews)

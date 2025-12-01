@@ -8,6 +8,7 @@ Author: Igor Lacko
 
 import argparse
 import os
+from shared import console
 from review_scraper import ReviewScraper
 from review_parser import ReviewParser
 from review_cleaner import ReviewCleaner
@@ -75,9 +76,9 @@ def init_scraper(urls: list[str], parser: ReviewParser, **kwargs) -> ReviewScrap
 
 def help() -> None:
     """Prints help message for using the scraper."""
-    print("Usage: python main.py <url1> <url2> ...")
-    print(
-        "Example: python main.py https://www.booking.com/hotel/sk/example1 https://www.booking.com/hotel/sk/example2"
+    console.print("[bold yellow]Usage:[/bold yellow] python main.py <url1> <url2> ...")
+    console.print(
+        "[bold yellow]Example:[/bold yellow] python main.py https://www.booking.com/hotel/sk/example1 https://www.booking.com/hotel/sk/example2"
     )
 
 
@@ -101,7 +102,7 @@ if __name__ == "__main__":
 
     # Enforce that --from-txt and manual URLs cannot be used together
     if args.from_txt and args.urls:
-        print("Error: --from-txt cannot be used together with manual URLs.")
+        console.print("[bold red]Error: --from-txt cannot be used together with manual URLs.[/bold red]")
         exit(1)
 
     # If --from-txt is used, read URLs from the file
@@ -120,17 +121,17 @@ if __name__ == "__main__":
                 filtered_urls = []
                 for url, file in zip(urls, files_to_add):
                     if file in existing_files:
-                        print(f"Skipping URL (CSV already exists): {url} -> {file}")
+                        console.print(f"[yellow]Skipping URL (CSV already exists): {url} -> {file}[/yellow]")
                     else:
                         filtered_urls.append(url)
                 urls = filtered_urls
 
                 if not urls:
-                    print("No new URLs to scrape after filtering existing CSV files.")
+                    console.print("[bold green]No new URLs to scrape after filtering existing CSV files.[/bold green]")
                     exit(0)
 
         except Exception as e:
-            print(f"Error reading URLs from {args.from_txt}: {e}")
+            console.print(f"[bold red]Error reading URLs from {args.from_txt}: {e}[/bold red]")
             exit(1)
     else:
         urls = args.urls

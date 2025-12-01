@@ -10,6 +10,7 @@ import pandas as pd
 import os
 from models.review import Review
 from models.statistics import Statistics
+from shared import console
 
 
 class ReviewCleaner:
@@ -65,11 +66,13 @@ class ReviewCleaner:
         Returns:
             pd.DataFrame: Cleaned DataFrame.
         """
-        df = df.dropna(how="all", subset=["content_good", "content_bad"])[
+        df = df.dropna(how="all", subset=["content_good", "content_bad"])
+        mask = (
             df["content_good"].fillna("").apply(len)
             + df["content_bad"].fillna("").apply(len)
             >= 100
-        ].drop_duplicates()
+        )
+        df = df[mask].drop_duplicates()
         return df
 
     def compute_statistics(self, name: str, df: pd.DataFrame):
@@ -116,7 +119,7 @@ class ReviewCleaner:
     def compute_summary(self):
         """Computes and prints summary statistics for all processed hotels."""
         if not self.statistics:
-            print("No statistics to summarize.")
+            console.print("[bold red]No statistics to summarize.[/bold red]")
             return
 
         total_reviews = 0

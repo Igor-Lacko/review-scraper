@@ -7,6 +7,8 @@ Author: Igor Lacko
 """
 
 from dataclasses import dataclass
+from rich.table import Table
+from shared import console
 
 
 @dataclass
@@ -30,13 +32,17 @@ class Statistics:
 
     def print_summary(self) -> None:
         """Prints a summary of the statistics."""
-        print(f"---------- {self.name.upper()} STATISTICS ----------")
-        print(f"Total reviews: {self.total_reviews}")
-        print(f"Mean rating: {self.mean_rating:.2f}")
-        print(f"Mean review length: {self.mean_length:.2f} characters")
-        print(f"Max review length: {self.max_length} characters")
-        print(f"Min review length: {self.min_length} characters")
-        print(f"Reviews with positive sentiment empty: {self.with_positive_empty}")
-        print(f"Reviews with negative sentiment empty: {self.with_negative_empty}")
-        print(f"Reviews with both sentiments present: {self.with_both_sentiments}")
-        print("---------------------------------------------")
+        table = Table(title=f"{self.name.upper()} STATISTICS", show_header=True, header_style="bold magenta")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", justify="right", style="green")
+
+        table.add_row("Total reviews", str(self.total_reviews))
+        table.add_row("Mean rating", f"{self.mean_rating:.2f}")
+        table.add_row("Mean review length", f"{self.mean_length:.2f}")
+        table.add_row("Max review length", str(self.max_length))
+        table.add_row("Min review length", str(self.min_length))
+        table.add_row("Positive empty", str(self.with_positive_empty))
+        table.add_row("Negative empty", str(self.with_negative_empty))
+        table.add_row("Both present", str(self.with_both_sentiments))
+
+        console.print(table)
