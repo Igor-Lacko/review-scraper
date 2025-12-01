@@ -240,12 +240,13 @@ class ReviewScraper:
             self.page.wait_for_timeout(1000)
 
     def __get_hotel_name(self):
-        """Scrapes the hotel name from the page URL."""
+        """Scrapes the hotel name from the page content or URL."""
         url = self.page.url
         # Between the last / and .html
         start = url.rfind("/") + 1
         end = url.rfind(".html")
         self.hotel_name = url[start:end].replace("-", " ").title()
+        console.print(f"[bold blue]Hotel name detected: {self.hotel_name}[/bold blue]")
 
     def __is_disabled(self, selector: str) -> bool:
         """Checks if an element specified by the selector is disabled.
@@ -255,8 +256,10 @@ class ReviewScraper:
         Returns:
             bool: True if the element is disabled, False otherwise.
         """
-        locator = self.page.locator(selector)
-        return locator.is_disabled()
+        element = self.page.query_selector(selector)
+        if not element:
+            return True
+        return element.is_disabled()
 
     def close(self) -> None:
         """Closes the browser and playwright instance."""

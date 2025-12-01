@@ -66,6 +66,11 @@ class ReviewCleaner:
         Returns:
             pd.DataFrame: Cleaned DataFrame.
         """
+        # Remove surrounding quotes from content columns
+        for col in ["content_good", "content_bad"]:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.strip('"')
+
         df = df.dropna(how="all", subset=["content_good", "content_bad"])
         mask = (
             df["content_good"].fillna("").apply(len)
@@ -73,6 +78,7 @@ class ReviewCleaner:
             >= 100
         )
         df = df[mask].drop_duplicates()
+
         return df
 
     def compute_statistics(self, name: str, df: pd.DataFrame):
@@ -114,7 +120,8 @@ class ReviewCleaner:
         if self.statistics_mode in ("summary", "all"):
             self.statistics.append(stats)
 
-        stats.print_summary()
+        if self.statistics_mode in ("for-each", "all"):
+            stats.print_summary()
 
     def compute_summary(self):
         """Computes and prints summary statistics for all processed hotels."""
