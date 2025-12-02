@@ -8,6 +8,7 @@ Author: Igor Lacko
 
 import pandas as pd
 import os
+import sys
 from models.review import Review
 from models.statistics import Statistics
 from shared import console
@@ -98,11 +99,12 @@ class ReviewCleaner:
             + df["content_bad"].fillna("").apply(len).max()
         )
 
-        col_len = lambda val: len(val) if pd.notna(val) else float("inf")
-        min_length = (
-            df["content_good"].apply(col_len).min()
-            + df["content_bad"].apply(col_len).min()
-        )
+        # Calculate length for each row
+        review_lengths = df["content_good"].fillna("").apply(len) + df[
+            "content_bad"
+        ].fillna("").apply(len)
+        min_length = review_lengths.min() if not review_lengths.empty else 0
+
         with_positive_empty = df["content_good"].isna().sum()
         with_negative_empty = df["content_bad"].isna().sum()
 
@@ -133,30 +135,36 @@ class ReviewCleaner:
         total_mean_rating = 0.0
         total_mean_length = 0.0
         total_max_length = 0
-        total_min_length = 0
+        total_min_length = sys.maxsize
         total_with_positive_empty = 0
         total_with_negative_empty = 0
 
+        valid_ratings_count = 0
+        valid_lengths_count = 0
+
         for stats in self.statistics:
             total_reviews += stats.total_reviews
-            total_mean_rating += stats.mean_rating
-            total_mean_length += stats.mean_length
-            total_max_length = max(total_max_length, stats.max_length)
-            total_min_length = (
-                min(total_min_length, stats.min_length)
-                if total_min_length > 0
-                else stats.min_length
-            )
-            total_with_positive_empty += stats.with_positive_empty
-            total_with_negative_empty += stats.with_negative_empty
+            
+            if stats.mean_rating is not None and not pd.isna(stats.mean_rating):
+                total_mean_rating += stats.mean_rating
+                valid_ratings_count += 1
+                
+            if stats.mean_length is not None and not pd.isna(stats.mean_length):
+                total_mean_length += stats.mean_length
+                valid_lengths_count += 1
+                
+            total_max_length = max(total_max_length, (stats.max_length if stats.max_length is not None else 0))
+            total_min_length = min(total_min_length, (stats.min_length if stats.min_length is not None else sys.maxsize))
+            total_with_positive_empty += (stats.with_positive_empty if stats.with_positive_empty is not None else 0)
+            total_with_negative_empty += (stats.with_negative_empty if stats.with_negative_empty is not None else 0)
 
         summary = Statistics(
             name="SUMMARY",
             total_reviews=total_reviews,
-            mean_rating=total_mean_rating / len(self.statistics),
-            mean_length=total_mean_length / len(self.statistics),
+            mean_rating=total_mean_rating / valid_ratings_count if valid_ratings_count > 0 else 0.0,
+            mean_length=total_mean_length / valid_lengths_count if valid_lengths_count > 0 else 0.0,
             max_length=total_max_length,
-            min_length=total_min_length,
+            min_length=total_min_length if total_min_length != sys.maxsize else 0,
             with_positive_empty=total_with_positive_empty,
             with_negative_empty=total_with_negative_empty,
         )

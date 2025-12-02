@@ -166,13 +166,17 @@ class ReviewScraper:
                 # Always try to find this button since computing when to stop is hard
                 if self.page.locator(load_more_button_selector).is_visible():
                     status.update("[bold blue]Loading more results ...[/bold blue]")
-                    self.page.locator(load_more_button_selector).scroll_into_view_if_needed()
+                    self.page.locator(
+                        load_more_button_selector
+                    ).scroll_into_view_if_needed()
                     self.__safe_click(load_more_button_selector)
                     self.page.wait_for_load_state("networkidle")
                     self.page.wait_for_timeout(2000)
                 else:
                     # Scroll down to the bottom to trigger fetching more hotels
-                    self.page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
+                    self.page.evaluate(
+                        "window.scrollTo(0, document.body.scrollHeight);"
+                    )
                     self.page.wait_for_load_state("networkidle")
                     self.page.wait_for_timeout(2000)
 
@@ -281,17 +285,24 @@ class ReviewScraper:
         self.browser.close()
         self.playwright.stop()
 
-    def __select_language(self) -> None:
+    def __select_language(self) -> bool:
         """Selects the desired language for reviews."""
-        # Wait for the selector to be available
-        self.page.wait_for_selector(
-            self.language_selector, timeout=5000, state="attached"
-        )
-        self.page.select_option(self.language_selector, self.language)
-        self.page.wait_for_load_state("networkidle")
-        self.page.wait_for_timeout(2000)
+        try:
+            # Wait for the selector to be available
+            self.page.wait_for_selector(
+                self.language_selector, timeout=5000, state="attached"
+            )
+            self.page.select_option(self.language_selector, self.language)
+            self.page.wait_for_load_state("networkidle")
+            self.page.wait_for_timeout(2000)
+            return True
+        except Exception as e:
+            console.print(
+                f"[bold red]Failed to select language (probably no reviews in that language or no reviews at all)[/bold red]"
+            )
+            return False
 
-    def scrape_next_page(self) -> str | None:
+    def scrape_next_page(self):
         """Scrapes the next URL in the list.
 
         Returns:
@@ -314,7 +325,11 @@ class ReviewScraper:
             )
             self.__safe_click(self.review_selector)
             self.page.wait_for_load_state("networkidle")
-            self.__select_language()
+            if not self.__select_language():
+                console.print(
+                    f"[bold yellow]Skipping hotel {self.hotel_name} due to language selection failure.[/bold yellow]"
+                )
+                return None
 
             scraped_reviews = []
 
