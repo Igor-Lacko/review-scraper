@@ -49,6 +49,12 @@ parser.add_argument(
     help="Folder to store CSV dataframes",
 )
 
+parser.add_argument(
+    "--combine",
+    action="store_true",
+    help="Combine all cleaned CSV files into a single CSV file named 'dataset.csv' in the dataframe folder",
+)
+
 
 def init_parser(**kwargs) -> ReviewParser:
     """Initializes the review parser with default selectors. If any will be changed,
@@ -91,12 +97,14 @@ def help() -> None:
 if __name__ == "__main__":
     args = parser.parse_args()
 
-    if args.clean or args.clean_all:
+    if args.clean or args.clean_all or args.combine:
         cleaner = ReviewCleaner(dataframe_folder=args.dataframe_folder)
         if args.clean:
             cleaner.clean_one_csv(args.clean)
         if args.clean_all:
             cleaner.clean_folder()
+        if args.combine:
+            cleaner.combine_csvs()
         exit(0)
 
     elif (

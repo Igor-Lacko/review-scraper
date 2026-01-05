@@ -144,25 +144,47 @@ class ReviewCleaner:
 
         for stats in self.statistics:
             total_reviews += stats.total_reviews
-            
+
             if stats.mean_rating is not None and not pd.isna(stats.mean_rating):
                 total_mean_rating += stats.mean_rating
                 valid_ratings_count += 1
-                
+
             if stats.mean_length is not None and not pd.isna(stats.mean_length):
                 total_mean_length += stats.mean_length
                 valid_lengths_count += 1
-                
-            total_max_length = max(total_max_length, (stats.max_length if stats.max_length is not None else 0))
-            total_min_length = min(total_min_length, (stats.min_length if stats.min_length is not None else sys.maxsize))
-            total_with_positive_empty += (stats.with_positive_empty if stats.with_positive_empty is not None else 0)
-            total_with_negative_empty += (stats.with_negative_empty if stats.with_negative_empty is not None else 0)
+
+            total_max_length = max(
+                total_max_length,
+                (stats.max_length if stats.max_length is not None else 0),
+            )
+            total_min_length = min(
+                total_min_length,
+                (stats.min_length if stats.min_length is not None else sys.maxsize),
+            )
+            total_with_positive_empty += (
+                stats.with_positive_empty
+                if stats.with_positive_empty is not None
+                else 0
+            )
+            total_with_negative_empty += (
+                stats.with_negative_empty
+                if stats.with_negative_empty is not None
+                else 0
+            )
 
         summary = Statistics(
             name="SUMMARY",
             total_reviews=total_reviews,
-            mean_rating=total_mean_rating / valid_ratings_count if valid_ratings_count > 0 else 0.0,
-            mean_length=total_mean_length / valid_lengths_count if valid_lengths_count > 0 else 0.0,
+            mean_rating=(
+                total_mean_rating / valid_ratings_count
+                if valid_ratings_count > 0
+                else 0.0
+            ),
+            mean_length=(
+                total_mean_length / valid_lengths_count
+                if valid_lengths_count > 0
+                else 0.0
+            ),
             max_length=total_max_length,
             min_length=total_min_length if total_min_length != sys.maxsize else 0,
             with_positive_empty=total_with_positive_empty,
@@ -198,3 +220,27 @@ class ReviewCleaner:
 
         if self.statistics_mode in ("summary", "all"):
             self.compute_summary()
+
+    def combine_csvs(self):
+        """Combines all cleaned CSV files in the dataframe folder into a single CSV file."""
+        console.print("[bold green]Combining CSV files...[/bold green]")
+        dataframes = []
+
+        for filename in os.listdir(self.dataframe_folder):
+            if filename.endswith(".csv") and filename != "dataset.csv":
+                filepath = os.path.join(self.dataframe_folder, filename)
+                console.print(f"[blue]Processing file: {filename}[/blue]")
+                df = pd.read_csv(filepath)
+                if not df.empty:
+                    dataframes.append(df)
+                else:
+                    console.print(f"[yellow]Skipping empty file: {filename}[/yellow]")
+
+        if dataframes:
+            df: pd.DataFrame = pd.concat(dataframes, ignore_index=True)
+            # Still not sure whether to use them separately or unified
+            df["unified"] = (df["content_good"].fillna("") + " " + df["content_bad"].fillna("")).str.strip()
+            df = df.drop_duplicates(subset=["unified"])
+            df.to_csv(os.path.join(self.dataframe_folder, "dataset.csv"), index=False)
+
+        console.print("[bold green]CSV files combined into 'dataset.csv'.[/bold green]")
