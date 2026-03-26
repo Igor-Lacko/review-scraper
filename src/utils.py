@@ -19,6 +19,7 @@ def url_to_csv(url: str) -> str:
     hotel_name = url[start:end]
     return f"{hotel_name.lower().replace('-', '_')}.csv"
 
+
 def shorten_url(url: str) -> str:
     """Shortens a Booking.com hotel URL so that it is only hotel-name.html and nothing past that.
     Args:

@@ -211,3 +211,4 @@ hotels.md
 csvs/
 *.txt
 !requirements.txt
+.python-version

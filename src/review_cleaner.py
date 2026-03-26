@@ -239,7 +239,9 @@ class ReviewCleaner:
         if dataframes:
             df: pd.DataFrame = pd.concat(dataframes, ignore_index=True)
             # Still not sure whether to use them separately or unified
-            df["unified"] = (df["content_good"].fillna("") + " " + df["content_bad"].fillna("")).str.strip()
+            df["unified"] = (
+                df["content_good"].fillna("") + " " + df["content_bad"].fillna("")
+            ).str.strip()
             df = df.drop_duplicates(subset=["unified"])
             df.to_csv(os.path.join(self.dataframe_folder, "dataset.csv"), index=False)
 

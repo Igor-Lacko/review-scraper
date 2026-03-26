@@ -9,6 +9,7 @@ Author: Igor Lacko
 from bs4 import BeautifulSoup, Tag
 from models.review import Review
 
+
 class ReviewParser:
     """Class for parsing hotel reviews from HTML content."""
 
@@ -21,23 +22,32 @@ class ReviewParser:
         self.soup = None
 
         # Individual review card
-        self.card_selector = kwargs.get('card_selector', 'div[data-testid="review-card"]')
+        self.card_selector = kwargs.get(
+            "card_selector", 'div[data-testid="review-card"]'
+        )
 
         # Review itself inside the card
-        self.review_selector = kwargs.get('review_selector', 'div[aria-label="Review"]')
+        self.review_selector = kwargs.get("review_selector", 'div[aria-label="Review"]')
 
         # Review title
-        self.title_selector = kwargs.get('title_selector', 'div[data-testid="review-title"]')
+        self.title_selector = kwargs.get(
+            "title_selector", 'div[data-testid="review-title"]'
+        )
 
         # Review rating
-        self.rating_selector = kwargs.get('rating_selector', 'div[data-testid="review-score"]')
+        self.rating_selector = kwargs.get(
+            "rating_selector", 'div[data-testid="review-score"]'
+        )
 
         # Positive content
-        self.positive_selector = kwargs.get('positive_selector', 'div[data-testid="review-positive-text"]')
+        self.positive_selector = kwargs.get(
+            "positive_selector", 'div[data-testid="review-positive-text"]'
+        )
 
         # Negative content
-        self.negative_selector = kwargs.get('negative_selector', 'div[data-testid="review-negative-text"]')
-
+        self.negative_selector = kwargs.get(
+            "negative_selector", 'div[data-testid="review-negative-text"]'
+        )
 
     def parse_current(self, html: str) -> list[Review]:
         """Parses the currently selected/scraped review tab
@@ -48,9 +58,9 @@ class ReviewParser:
         Returns:
             list[Review]: Parsed list of review objects.
         """
-        self.soup = BeautifulSoup(html, 'html.parser')
+        self.soup = BeautifulSoup(html, "html.parser")
         cards = self.soup.select(self.card_selector)
-        results : list[Review] = []
+        results: list[Review] = []
 
         for card in cards:
             if (review := self.__parse_one(card)) is not None:
@@ -71,7 +81,7 @@ class ReviewParser:
         rating_tag = card.select_one(self.rating_selector)
         if rating_tag is None:
             return None
-        
+
         rating_strings = rating_tag.stripped_strings
         rating_str = next(rating_strings, None)
         if rating_str is None:
@@ -88,8 +98,4 @@ class ReviewParser:
         negative_tag = card.select_one(self.negative_selector)
         content_bad = negative_tag.get_text(strip=True) if negative_tag else None
 
-        return Review( 
-            rating=rating,
-            content_good=content_good,
-            content_bad=content_bad
-        )
+        return Review(rating=rating, content_good=content_good, content_bad=content_bad)

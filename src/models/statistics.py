@@ -32,7 +32,11 @@ class Statistics:
 
     def print_summary(self) -> None:
         """Prints a summary of the statistics."""
-        table = Table(title=f"{self.name.upper()} STATISTICS", show_header=True, header_style="bold magenta")
+        table = Table(
+            title=f"{self.name.upper()} STATISTICS",
+            show_header=True,
+            header_style="bold magenta",
+        )
         table.add_column("Metric", style="cyan")
         table.add_column("Value", justify="right", style="green")
 
