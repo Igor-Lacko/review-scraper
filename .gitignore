@@ -212,3 +212,4 @@ csvs/
 *.txt
 !requirements.txt
 .python-version
+backup/
