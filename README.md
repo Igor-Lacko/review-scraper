@@ -6,6 +6,7 @@ Scraper of Slovak reviews for hotels taken from Booking.com for my bachelor's th
 .
 ├── pyproject.toml                          # TOML file with dependencies
 ├── README.md                               # This README
+├── requirements.txt                        # pip project file
 ├── src                                     # Source code
 │   ├── main.py                                 # - Scraper entry point
 │   ├── models                                  # - Dataclasses representing one review and statistics
