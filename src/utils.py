@@ -21,7 +21,7 @@ def url_to_csv(url: str) -> str:
 
 
 def shorten_url(url: str) -> str:
-    """Shortens a Booking.com hotel URL so that it is only hotel-name.html and nothing past that.
+    """Shortens a URL so that it is only hotel-name.html and nothing past that.
     Args:
         url (str): The full hotel URL.
     Returns:

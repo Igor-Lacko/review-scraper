@@ -1,7 +1,7 @@
 """
 main.py
 
-Entry point to the Booking.com scraper for slovak hotel reviews.
+Scraper entry point
 
 Author: Igor Lacko
 """
@@ -13,7 +13,7 @@ from review_parser import ReviewParser
 from review_cleaner import ReviewCleaner
 from url_filter import URLFilter
 
-parser = argparse.ArgumentParser(description="Booking.com Hotel Review Scraper")
+parser = argparse.ArgumentParser(description="Review Scraper")
 parser.add_argument("urls", nargs="*", help="List of URLs to scrape")
 parser.add_argument(
     "--from-txt",
@@ -90,7 +90,7 @@ def help() -> None:
     """Prints help message for using the scraper."""
     console.print("[bold yellow]Usage:[/bold yellow] python main.py <url1> <url2> ...")
     console.print(
-        "[bold yellow]Example:[/bold yellow] python main.py https://www.booking.com/hotel/sk/example1 https://www.booking.com/hotel/sk/example2"
+        "[bold yellow]Example:[/bold yellow] python main.py urlexample1 urlexample2"
     )
 
 

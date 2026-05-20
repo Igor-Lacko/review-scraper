@@ -1,6 +1,6 @@
-# Booking.com review scraper
+# Review scraper
 
-Scraper of Slovak reviews for hotels taken from Booking.com for my bachelor's thesis. Scrapes Slovak reviews from Booking.com from a base list url, filtering out hotels that have already been scraped (from a text file). Uses Playwright for scraping and BeautifulSoup4 for HTML parsing. The structure of this repository is:
+Scraper of Slovak reviews for my bachelor's thesis. Scrapes reviews from a base list url, filtering out hotels that have already been scraped (from a text file). Uses Playwright for scraping and BeautifulSoup4 for HTML parsing. The structure of this repository is:
 
 ```
 .
@@ -23,4 +23,4 @@ Scraper of Slovak reviews for hotels taken from Booking.com for my bachelor's th
 
 ## Disclaimer
 
-Scraping Booking.com is not legal without their permission. Use this at your own risk.
+Scraping reviews may not be legal without permission. Use this at your own risk.
